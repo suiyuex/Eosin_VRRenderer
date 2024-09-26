@@ -2,7 +2,7 @@
     VR Renderer for Virt-a-Mate
     by Eosin
     License: CC BY-SA
- 
+
     Uses code from MacGruber's Essentials (SuperShot, SuperResolution, SkyMagicExporter and utility functions), licensed under CC BY-SA.
     https://hub.virtamate.com/resources/macgruber-essentials.160/
 
@@ -390,7 +390,7 @@ namespace Eosin
         public const int STREAM_DISABLED = 0;
         public const int STREAM_ENABLED = 1;
         public const int STREAM_PLUS_IMAGES = 2;
-        
+
 
         private static readonly int[] DEFAULT_RESOLUTION_IDX = new int[] { 1, 1, 0, 7, 2, 1, 7, 11 };
 
@@ -577,6 +577,9 @@ namespace Eosin
         private bool saveVideoEnabled;
         private TcpClient streamVideoClient;
 
+        private JSONStorableBool syncTransformToViewport;
+        private bool needSyncToViewport;
+
         void DelayedInit()
         {
             originalAudioListener = GameObject.FindObjectOfType<AudioListener>()?.gameObject;
@@ -680,6 +683,7 @@ namespace Eosin
             leaveEmptySphereVisible = Utils.SetupToggle(this, "Empty and Target Stay Visible", true, true);
             usePostProcessing = Utils.SetupToggle(this, "Use Post-Processing Effects", false, true);
             useCommandBuffers = Utils.SetupToggle(this, "Use Command Buffer Effects", false, true);
+            syncTransformToViewport = Utils.SetupToggle(this, "Sync Cam Transform To Viewport", false, true);
 
             JSONStorableFloat previewSizeChooser = Utils.SetupSliderFloat(this, "Preview Size (%)", previewSize * 100f, 1f, ((float)(Screen.height * (1 - previewPadding * 3f)) / (float)Screen.width) * 100f, true);
 
@@ -733,12 +737,12 @@ namespace Eosin
             renderBackgroundChooser = Utils.SetupToggle(this, "Render Background To Output", true, true);
             backgroundColor = Utils.SetupColor(this, "Background Color", Color.black, true);
             hideBackgroundColorOnPreviewOnly = Utils.SetupToggle(this, "Hide Background Color On Preview Only", false, true);
-            
+
             encThreadsToggle = Utils.SetupToggle(this, "Multi-Threaded Encoding", true, true);
             numEncThreadsSlider = Utils.SetupSliderIntWithRange(this, "Encoder Thread Count", 4, 1, MAX_ENC_THREADS, true);
-            
+
             streamHostField = new JSONStorableString("streamHostField", "127.0.0.1");
-            
+
             streamModeChooser = Utils.SetupStringChooser(this, "Stream Mode", STREAM_NAMES, STREAM_DISABLED, true);
             UIDynamicLabelInput streamHostInput = Utils.SetupTextInput(this, "Host", streamHostField, true);
             streamPortSlider = Utils.SetupSliderIntWithRange(this, "Port", 54341, IPEndPoint.MinPort, IPEndPoint.MaxPort, true);
@@ -1107,6 +1111,16 @@ namespace Eosin
                 if (myFileFormat < 0 || myFileFormat >= FORMAT_NAMES.Count)
                     myFileFormat = DEFAULT_FORMAT;
                 myNeedSetup = true;
+            };
+
+            syncTransformToViewport.setCallbackFunction += val =>
+            {
+                needSyncToViewport = val;
+
+                if (needSyncToViewport)
+                {
+                    SuperController.LogMessage("The FOV of viewport is " + Camera.main.fieldOfView;
+                }
             };
         }
 
@@ -1931,21 +1945,23 @@ namespace Eosin
 
         void SyncCameraTransform()
         {
+            Transform targetTransform = needSyncToViewport ? Camera.main.transform : containingAtom.mainController.transform;
+
             if (renderCamParentObj != null)
             {
-                renderCamParentObj.transform.position = containingAtom.mainController.transform.position;
-                if (cameraTarget != null)
-                    renderCamParentObj.transform.LookAt(cameraTarget, containingAtom.mainController.transform.up);
+                renderCamParentObj.transform.position = targetTransform.position;
+                if (cameraTarget != null && !needSyncToViewport)
+                    renderCamParentObj.transform.LookAt(cameraTarget, targetTransform.up);
                 else
-                    renderCamParentObj.transform.rotation = containingAtom.mainController.transform.rotation;
+                    renderCamParentObj.transform.rotation = targetTransform.rotation;
             }
             if (previewCamera != null)
             {
-                previewCamera.transform.position = containingAtom.mainController.transform.position;
-                if (cameraTarget != null)
-                    previewCamera.transform.LookAt(cameraTarget, containingAtom.mainController.transform.up);
+                previewCamera.transform.position = targetTransform.position;
+                if (cameraTarget != null && !needSyncToViewport)
+                    previewCamera.transform.LookAt(cameraTarget, targetTransform.up);
                 else
-                    previewCamera.transform.rotation = containingAtom.mainController.transform.rotation;
+                    previewCamera.transform.rotation = targetTransform.rotation;
             }
         }
 
@@ -2131,7 +2147,7 @@ namespace Eosin
             {
                 pcmAudioData.Add((short)(Mathf.Clamp(Mathf.Round((float)currentBuffer[i] * maxShort), -sampleRange, sampleRange - 1)));
             }
-            
+
             if (audioBufferGeneric.IsCreated)
                 audioBufferGeneric.Dispose();
         }
@@ -2288,7 +2304,7 @@ namespace Eosin
         {
             if (!PrepareFrame())
                 return;
-            
+
             int curEncThreadIndex = -1;
 
             if (encThreadingEnabled)
@@ -2311,7 +2327,7 @@ namespace Eosin
             {
                 curEncThreadIndex = 0;
             }
-            
+
             if (curEncThreadIndex >= 0)
             {
                 RenderFrame(curEncThreadIndex);
@@ -2691,7 +2707,7 @@ namespace Eosin
         {
             if (encThreadingEnabled)
             {
-                ThreadPool.QueueUserWorkItem(delegate(object arg)
+                ThreadPool.QueueUserWorkItem(delegate (object arg)
                 {
                     SaveRenderAsFileInternal(fileFormat, filename, tex);
 
@@ -2712,7 +2728,7 @@ namespace Eosin
                 // Stream raw texture data to TCP socket
                 byte[] rawBytes = tex.GetRawTextureData();
                 NetworkStream vidStream = streamVideoClient.GetStream();
-                
+
                 try
                 {
                     vidStream.Write(rawBytes, 0, rawBytes.Length);
@@ -2725,7 +2741,7 @@ namespace Eosin
                     streamVideoClient = null;
                 }
             }
-            
+
             if (saveVideoEnabled)
             {
                 // Regular file saving
@@ -3072,7 +3088,7 @@ namespace Eosin
                         bvhData[bones].bvhOutput.Append("Frames: ");
 
                         bvhData[bones].bvhOutputFrameOffset = bvhData[bones].bvhOutput.Length;
-						string reciprocal = (1f / effectiveFrameRateInt).ToString("F8");
+                        string reciprocal = (1f / effectiveFrameRateInt).ToString("F8");
                         bvhData[bones].bvhOutput.Append("\nFrame Time: " + reciprocal.Substring(0, reciprocal.Length - 1) + "\n"); // skip last rounded digit to ensure the reciprocal's reciprocal is above the original int
                     }
                 }
@@ -3387,7 +3403,7 @@ namespace Eosin
 
             int width = finalResolution.x;
             int height = finalResolution.y;
-            
+
             TextureFormat textureFormat = (myFileFormat == FORMAT_JPG || !(preserveTransparencyChooser.val && myFileFormat == FORMAT_PNG)) ? TextureFormat.RGB24 : TextureFormat.ARGB32;
 
             switch (STREAM_NAMES.FindIndex((s) => s == streamModeChooser.val))
@@ -3409,8 +3425,8 @@ namespace Eosin
             if (streamVideoEnabled)
             {
                 string streamHost = streamHostField.val;
-                int streamPort = Mathf.Clamp((int) Math.Round(streamPortSlider.val), IPEndPoint.MinPort, IPEndPoint.MaxPort);
-                
+                int streamPort = Mathf.Clamp((int)Math.Round(streamPortSlider.val), IPEndPoint.MinPort, IPEndPoint.MaxPort);
+
                 SuperController.LogMessage("Sending raw image data (format: " + textureFormat + ", size: " + width + "x" + height + ", framerate: " + frameRateInt + ") to TCP socket " + streamHost + ":" + streamPort);
 
                 try
@@ -3428,12 +3444,12 @@ namespace Eosin
                 streamVideoClient = null;
             }
 
-            int numEncThreads = encThreadsToggle.val ? (int) numEncThreadsSlider.val : 0;
+            int numEncThreads = encThreadsToggle.val ? (int)numEncThreadsSlider.val : 0;
 
             if (numEncThreads == 0)
             {
                 encThreadingEnabled = false;
-                finalOutputTextures = new Texture2D[] {new Texture2D(width, height, textureFormat, false)};
+                finalOutputTextures = new Texture2D[] { new Texture2D(width, height, textureFormat, false) };
                 encThreadFreeFlags = null;
                 encThreadSem = null;
             }
@@ -3444,7 +3460,7 @@ namespace Eosin
                     // Sending TCP data currently isn't threadsafe. Probably not much to be gained anyway.
                     numEncThreads = 1;
                 }
-                
+
                 encThreadingEnabled = true;
                 finalOutputTextures = new Texture2D[numEncThreads];
                 encThreadFreeFlags = new bool[numEncThreads];
