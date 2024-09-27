@@ -177,6 +177,7 @@ using System.Threading;
 using UnityEngine.Rendering;
 using Unity.Collections;
 using UnityEngine.Audio;
+using System.Security.Cryptography;
 
 namespace Eosin
 {
@@ -579,6 +580,13 @@ namespace Eosin
 
         private JSONStorableBool syncTransformToViewport;
         private bool needSyncToViewport;
+        private int padding
+        {
+            get
+            { return (int)(Screen.width * previewPadding); }
+        }
+        private const float barHeight = 18f;
+        private const int borderWidth = 1;
 
         void DelayedInit()
         {
@@ -1119,7 +1127,7 @@ namespace Eosin
 
                 if (needSyncToViewport)
                 {
-                    SuperController.LogMessage("The FOV of viewport is " + Camera.main.fieldOfView;
+                    SuperController.LogMessage("The FOV of viewport is " + Camera.main.fieldOfView);
                 }
             };
         }
@@ -1547,27 +1555,24 @@ namespace Eosin
             myNeedSetup = false;
         }
 
+        #region GUI
         void OnGUI()
         {
             if (!previewStaysOpenChooser.val && !bRendering && containingAtom.mainController != SuperController.singleton.GetSelectedController())
                 return;
             if (previewChooser.val && Event.current.type.Equals(EventType.Repaint) && previewTex != null)
             {
-                int width = previewTex.width;
-                int height = previewTex.height;
-                int pad = (int)(Screen.width * previewPadding);
                 Rect previewRect;
-                float barHeight = 18;
-
-                if (bRendering && bRecordVideo)
                 {
-                    previewRect = new Rect(Screen.width - width - pad, Screen.height - height - pad - barHeight, width, height);
-                }
-                else
-                {
-                    previewRect = new Rect(Screen.width - width - pad, Screen.height - height - pad, width, height);
-                }
+                    int width = previewTex.width;
+                    int height = previewTex.height;
 
+                    previewRect = new Rect(Screen.width - width - padding, Screen.height - height - padding, width, height);
+                    if (bRendering && bRecordVideo)
+                    {
+                        previewRect.y = previewRect.y - barHeight - padding;
+                    }
+                }
                 GL.sRGBWrite = true;
 
                 /*
@@ -1649,8 +1654,6 @@ namespace Eosin
                     Graphics.DrawTexture(botHider, blackTex);
                 }
 
-                int borderWidth = 1;
-
                 Rect topBorder = new Rect(previewRect.min.x - borderWidth, previewRect.min.y - borderWidth, previewRect.width + 2 * borderWidth, borderWidth);
                 Rect bottomBorder = new Rect(previewRect.min.x - borderWidth, previewRect.max.y, previewRect.width + 2 * borderWidth, borderWidth);
                 Rect leftBorder = new Rect(previewRect.min.x - borderWidth, previewRect.min.y - borderWidth, borderWidth, previewRect.height + 2 * borderWidth);
@@ -1663,120 +1666,134 @@ namespace Eosin
 
                 if (crosshairChooser.val)
                 {
-                    Texture2D backTex = semiTex;
-                    Texture2D outerTex = Texture2D.whiteTexture;
-                    Texture2D innerTex = blackTex;
-                    Texture2D centerTex = Texture2D.whiteTexture;
-
-                    int lineLength = (int)(width * 0.2f);
-                    int offsetW = width - 1;
-                    int offsetH = height - 1;
-
-                    Rect backHLine = new Rect(previewRect.min.x, previewRect.min.y + offsetH / 2f, offsetW, 1);
-                    Rect backVLine = new Rect(previewRect.min.x + offsetW / 2f, previewRect.min.y, 1, offsetH);
-
-                    int outerLength = lineLength / 6;
-                    Rect lineLeft = new Rect(previewRect.min.x, previewRect.min.y + offsetH / 2, outerLength, 1);
-                    Rect lineRight = new Rect(previewRect.max.x - outerLength, previewRect.min.y + offsetH / 2, outerLength, 1);
-                    Rect lineTop = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y, 1, outerLength);
-                    Rect lineBottom = new Rect(previewRect.min.x + offsetW / 2, previewRect.max.y - outerLength, 1, outerLength);
-
-                    Rect horizontalLine = new Rect(previewRect.min.x + offsetW / 2 - lineLength / 2, previewRect.min.y + offsetH / 2, lineLength, 1);
-                    Rect verticalLine = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y + offsetH / 2 - lineLength / 2, 1, lineLength);
-
-                    Rect horizontalLineSmall = new Rect(previewRect.min.x + offsetW / 2 - (3 * lineLength) / 10, previewRect.min.y + offsetH / 2, 2 * (3 * lineLength) / 10, 1);
-                    Rect verticalLineSmall = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y + offsetH / 2 - (3 * lineLength) / 10, 1, 2 * (3 * lineLength) / 10);
-
-                    Rect horizontalLineSmaller = new Rect(previewRect.min.x + offsetW / 2 - lineLength / 8, previewRect.min.y + offsetH / 2, lineLength / 4, 1);
-                    Rect verticalLineSmaller = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y + offsetH / 2 - lineLength / 8, 1, lineLength / 4);
-
-                    Rect dot = new Rect(previewRect.min.x + offsetW / 2 - 1, previewRect.min.y + offsetH / 2 - 1, 3, 3);
-
-                    Graphics.DrawTexture(backHLine, backTex);
-                    Graphics.DrawTexture(backVLine, backTex);
-                    Graphics.DrawTexture(lineLeft, centerTex);
-                    Graphics.DrawTexture(lineRight, centerTex);
-                    Graphics.DrawTexture(lineTop, centerTex);
-                    Graphics.DrawTexture(lineBottom, centerTex);
-                    Graphics.DrawTexture(horizontalLine, outerTex);
-                    Graphics.DrawTexture(verticalLine, outerTex);
-                    Graphics.DrawTexture(horizontalLineSmall, innerTex);
-                    Graphics.DrawTexture(verticalLineSmall, innerTex);
-                    Graphics.DrawTexture(horizontalLineSmaller, centerTex);
-                    Graphics.DrawTexture(verticalLineSmaller, centerTex);
-                    Graphics.DrawTexture(dot, innerTex);
+                    DrawCrosshair(previewRect);
                 }
 
-                if (bRendering && bRecordVideo)
-                {
-                    float dist = 0.2f;
-                    float progress = ((float)frameCounter / (float)effectiveFrameRateInt) / (float)secondsToRecord;
-
-                    float minWidth = 350;
-                    float barWidth = Mathf.Max(previewRect.max.x - previewRect.min.x, minWidth);
-
-                    float leftSide = previewRect.max.x - barWidth;
-                    Rect background = new Rect(leftSide, previewRect.max.y, barWidth, barHeight);
-                    Rect foreground = new Rect(leftSide, previewRect.max.y, barWidth * progress, barHeight);
-
-                    topBorder = new Rect(background.min.x - borderWidth, background.min.y - borderWidth, background.width + 2 * borderWidth, borderWidth);
-                    bottomBorder = new Rect(background.min.x - borderWidth, background.max.y, background.width + 2 * borderWidth, borderWidth);
-                    leftBorder = new Rect(background.min.x - borderWidth, background.min.y - borderWidth, borderWidth, background.height + 2 * borderWidth);
-                    rightBorder = new Rect(background.max.x, background.min.y - borderWidth, borderWidth, background.height + 2 * borderWidth);
-
-                    Graphics.DrawTexture(background, blackTex);
-                    Graphics.DrawTexture(topBorder, Texture2D.whiteTexture);
-                    Graphics.DrawTexture(bottomBorder, Texture2D.whiteTexture);
-                    Graphics.DrawTexture(leftBorder, Texture2D.whiteTexture);
-                    Graphics.DrawTexture(rightBorder, Texture2D.whiteTexture);
-                    Graphics.DrawTexture(foreground, Texture2D.whiteTexture);
-
-                    int labelWidth = 320;
-                    int padding = 2;
-                    Rect textLabel = new Rect(background.min.x + (background.max.x - background.min.x) / 2 - labelWidth / 2, background.min.y, labelWidth, (background.max.y - background.min.y));
-                    Rect labelBackground = new Rect(background.min.x + (background.max.x - background.min.x) / 2 - (labelWidth / 2) + padding, background.min.y + padding, labelWidth - 2 * padding, (background.max.y - background.min.y) - 2 * padding);
-
-                    if (timestamps.Count > 1)
-                    {
-                        int index = 0;
-                        for (int i = timestamps.Count - 1; i >= 0; i--)
-                        {
-                            if (Time.realtimeSinceStartup - timestamps[i] > timeStampCollectionDuration)
-                            {
-                                index = i;
-                                break;
-                            }
-                        }
-                        if (index != 0)
-                            timestamps = timestamps.GetRange(index, timestamps.Count - index);
-
-                        TextAnchor oldAlignment = GUI.skin.label.alignment;
-                        int oldFontSize = GUI.skin.label.fontSize;
-                        GUI.skin.label.alignment = TextAnchor.MiddleCenter;
-                        GUI.skin.label.fontSize = 12;
-                        Graphics.DrawTexture(labelBackground, blackTex);
-                        float total = 0f;
-                        for (int i = 0; i < timestamps.Count - 1; i++)
-                            total += (timestamps[i + 1] - timestamps[i]);
-                        float framesPerMinute = 60f / (total / (float)(timestamps.Count));
-                        float framesLeft = (float)secondsToRecord * (float)effectiveFrameRateInt - frameCounter;
-                        float minutesLeft = (framesLeft / framesPerMinute);
-                        int hoursLeft = ((int)minutesLeft / 60);
-                        int subHourMinutesleft = (int)minutesLeft - hoursLeft * 60;
-                        int secondsLeft = (int)((minutesLeft - Mathf.Floor(minutesLeft)) * 60f);
-                        if (hoursLeft > 0)
-                            GUI.Label(textLabel, "" + frameCounter + "/" + secondsToRecord * effectiveFrameRateInt + " - " + framesPerMinute.ToString("0.00") + " FPM - " + hoursLeft.ToString() + "h" + subHourMinutesleft.ToString("D2") + "m" + secondsLeft.ToString("D2") + "s left", GUI.skin.label);
-                        else
-                            GUI.Label(textLabel, "" + frameCounter + "/" + secondsToRecord * effectiveFrameRateInt + " - " + framesPerMinute.ToString("0.00") + " FPM - " + subHourMinutesleft.ToString("D2") + "m" + secondsLeft.ToString("D2") + "s left", GUI.skin.label);
-                        GUI.skin.label.alignment = oldAlignment;
-                        GUI.skin.label.fontSize = oldFontSize;
-                    }
-                }
 
                 GL.sRGBWrite = false;
             }
+
+            DrawProgress();
         }
 
+        private void DrawProgress()
+        {
+            if (!(bRendering && bRecordVideo))
+            { return; }
+
+            float dist = 0.2f;
+            float progress = ((float)frameCounter / (float)effectiveFrameRateInt) / (float)secondsToRecord;
+
+            float minWidth = 350;
+            float barWidth = minWidth;
+            float offset = 0;
+            float leftSide = Screen.width - this.padding - barWidth - offset;
+            float bottomSide = Screen.height - this.padding - barHeight;
+
+            Rect background = new Rect(leftSide, bottomSide, barWidth, barHeight);
+            Rect foreground = new Rect(leftSide, bottomSide, barWidth * progress, barHeight);
+
+            Rect topBorder = new Rect(background.min.x - borderWidth, background.min.y - borderWidth, background.width + 2 * borderWidth, borderWidth);
+            Rect bottomBorder = new Rect(background.min.x - borderWidth, background.max.y, background.width + 2 * borderWidth, borderWidth);
+            Rect leftBorder = new Rect(background.min.x - borderWidth, background.min.y - borderWidth, borderWidth, background.height + 2 * borderWidth);
+            Rect rightBorder = new Rect(background.max.x, background.min.y - borderWidth, borderWidth, background.height + 2 * borderWidth);
+
+            Graphics.DrawTexture(background, blackTex);
+            Graphics.DrawTexture(topBorder, Texture2D.whiteTexture);
+            Graphics.DrawTexture(bottomBorder, Texture2D.whiteTexture);
+            Graphics.DrawTexture(leftBorder, Texture2D.whiteTexture);
+            Graphics.DrawTexture(rightBorder, Texture2D.whiteTexture);
+            Graphics.DrawTexture(foreground, Texture2D.whiteTexture);
+
+            int labelWidth = 320;
+            int padding = 2;
+            Rect textLabel = new Rect(background.min.x + (background.max.x - background.min.x) / 2 - labelWidth / 2, background.min.y, labelWidth, (background.max.y - background.min.y));
+            Rect labelBackground = new Rect(background.min.x + (background.max.x - background.min.x) / 2 - (labelWidth / 2) + padding, background.min.y + padding, labelWidth - 2 * padding, (background.max.y - background.min.y) - 2 * padding);
+
+            if (timestamps.Count > 1)
+            {
+                int index = 0;
+                for (int i = timestamps.Count - 1; i >= 0; i--)
+                {
+                    if (Time.realtimeSinceStartup - timestamps[i] > timeStampCollectionDuration)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                if (index != 0)
+                    timestamps = timestamps.GetRange(index, timestamps.Count - index);
+
+                TextAnchor oldAlignment = GUI.skin.label.alignment;
+                int oldFontSize = GUI.skin.label.fontSize;
+                GUI.skin.label.alignment = TextAnchor.MiddleCenter;
+                GUI.skin.label.fontSize = 12;
+                Graphics.DrawTexture(labelBackground, blackTex);
+                float total = 0f;
+                for (int i = 0; i < timestamps.Count - 1; i++)
+                    total += (timestamps[i + 1] - timestamps[i]);
+                float framesPerMinute = 60f / (total / (float)(timestamps.Count));
+                float framesLeft = (float)secondsToRecord * (float)effectiveFrameRateInt - frameCounter;
+                float minutesLeft = (framesLeft / framesPerMinute);
+                int hoursLeft = ((int)minutesLeft / 60);
+                int subHourMinutesleft = (int)minutesLeft - hoursLeft * 60;
+                int secondsLeft = (int)((minutesLeft - Mathf.Floor(minutesLeft)) * 60f);
+                if (hoursLeft > 0)
+                    GUI.Label(textLabel, "" + frameCounter + "/" + secondsToRecord * effectiveFrameRateInt + " - " + framesPerMinute.ToString("0.00") + " FPM - " + hoursLeft.ToString() + "h" + subHourMinutesleft.ToString("D2") + "m" + secondsLeft.ToString("D2") + "s left", GUI.skin.label);
+                else
+                    GUI.Label(textLabel, "" + frameCounter + "/" + secondsToRecord * effectiveFrameRateInt + " - " + framesPerMinute.ToString("0.00") + " FPM - " + subHourMinutesleft.ToString("D2") + "m" + secondsLeft.ToString("D2") + "s left", GUI.skin.label);
+                GUI.skin.label.alignment = oldAlignment;
+                GUI.skin.label.fontSize = oldFontSize;
+            }
+        }
+
+        private void DrawCrosshair(Rect previewRect)
+        {
+            Texture2D backTex = semiTex;
+            Texture2D outerTex = Texture2D.whiteTexture;
+            Texture2D innerTex = blackTex;
+            Texture2D centerTex = Texture2D.whiteTexture;
+
+            int lineLength = (int)(previewRect.width * 0.2f);
+            int offsetW = (int)previewRect.width - 1;
+            int offsetH = (int)previewRect.height - 1;
+
+            Rect backHLine = new Rect(previewRect.min.x, previewRect.min.y + offsetH / 2f, offsetW, 1);
+            Rect backVLine = new Rect(previewRect.min.x + offsetW / 2f, previewRect.min.y, 1, offsetH);
+
+            int outerLength = lineLength / 6;
+            Rect lineLeft = new Rect(previewRect.min.x, previewRect.min.y + offsetH / 2, outerLength, 1);
+            Rect lineRight = new Rect(previewRect.max.x - outerLength, previewRect.min.y + offsetH / 2, outerLength, 1);
+            Rect lineTop = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y, 1, outerLength);
+            Rect lineBottom = new Rect(previewRect.min.x + offsetW / 2, previewRect.max.y - outerLength, 1, outerLength);
+
+            Rect horizontalLine = new Rect(previewRect.min.x + offsetW / 2 - lineLength / 2, previewRect.min.y + offsetH / 2, lineLength, 1);
+            Rect verticalLine = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y + offsetH / 2 - lineLength / 2, 1, lineLength);
+
+            Rect horizontalLineSmall = new Rect(previewRect.min.x + offsetW / 2 - (3 * lineLength) / 10, previewRect.min.y + offsetH / 2, 2 * (3 * lineLength) / 10, 1);
+            Rect verticalLineSmall = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y + offsetH / 2 - (3 * lineLength) / 10, 1, 2 * (3 * lineLength) / 10);
+
+            Rect horizontalLineSmaller = new Rect(previewRect.min.x + offsetW / 2 - lineLength / 8, previewRect.min.y + offsetH / 2, lineLength / 4, 1);
+            Rect verticalLineSmaller = new Rect(previewRect.min.x + offsetW / 2, previewRect.min.y + offsetH / 2 - lineLength / 8, 1, lineLength / 4);
+
+            Rect dot = new Rect(previewRect.min.x + offsetW / 2 - 1, previewRect.min.y + offsetH / 2 - 1, 3, 3);
+
+            Graphics.DrawTexture(backHLine, backTex);
+            Graphics.DrawTexture(backVLine, backTex);
+            Graphics.DrawTexture(lineLeft, centerTex);
+            Graphics.DrawTexture(lineRight, centerTex);
+            Graphics.DrawTexture(lineTop, centerTex);
+            Graphics.DrawTexture(lineBottom, centerTex);
+            Graphics.DrawTexture(horizontalLine, outerTex);
+            Graphics.DrawTexture(verticalLine, outerTex);
+            Graphics.DrawTexture(horizontalLineSmall, innerTex);
+            Graphics.DrawTexture(verticalLineSmall, innerTex);
+            Graphics.DrawTexture(horizontalLineSmaller, centerTex);
+            Graphics.DrawTexture(verticalLineSmaller, centerTex);
+            Graphics.DrawTexture(dot, innerTex);
+        }
+
+        #endregion
         private void Update()
         {
             try
