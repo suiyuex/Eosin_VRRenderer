@@ -7,6 +7,7 @@ This is a GitHub version of [Eosin's VRRenderer Plugin](https://hub.virtamate.co
 This **isn't an official repository for the plugin**, but my (yunidatsu) private one for releasing some changes I'm doing to it.
 
 edited: Add option to sync camera's transform to viewport.
+
 edited2: Always show recording progress whatever preview is open.
 
 **install**
